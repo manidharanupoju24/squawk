@@ -71,5 +71,54 @@ async fn main() -> Result<()> {
             TokioAsyncResolver::tokio(ResolverConfig::default(), ResolverOpts::default())
         }
     };
+
+    // Print a small header, dig-style
+    match cli.server {
+        Some(ip) => println!(";; server: {ip}:{}", cli.port),
+        None => println!(";; server: system resolver"), 
+    }
+
+    println!(";; question: {} {}\n", cli.name, rtype);
+
+    // Time the query so you can see latency (useful for edge comparisions).
+    let started = Instant::now();
+    let result = resolver.lookup(cli.name.as_str(), rtype).await;
+    let elapsed = started.elapsed();
+
+    // Not every failure is a real error. "No records" is a normal DNS answer,
+    // so we match on the specific error variant and treat it gently. Anything 
+    // else (timeout, connection refused, SERVFAIL) is a genuine error we return.
+    let lookup = match result {
+        Ok(lookup) => lookup, 
+        Err(err) => match.err.kind() {
+            ResolveErrorKind::NoRecordsFound { .. } => {
+                println!(";; no {rtype} records for {} ({:.1?})"), cli.name, elapsed);
+                return Ok(());
+            }
+            _ => {
+                return Err(anyhow::Error::new(err)
+                .context(format!("lookup failed for {} {}", clin.name, rtype)));
+            }
+        },
+    };
+
+    // `records()` gives a slice of the answer records. We iterate and print each
+    let mut count = 0;
+    for record in lookup.records() {
+        // `if let Some(..)` unpacks the Option only when data is present. 
+        if let Some(data) = record.data() {
+            println!(
+            "{name:<40} {ttl:>6} {rtype:<6} {data}",
+            name = record.name(),
+            ttl = record.ttl(),
+            rtype = record.record_type(),
+            data = data,
+        );
+            count += 1;
+        }
+    }
+
+    println!("\n;; {count} answer(s) in {:.1?}", elapsed);
+    Ok(())
 }
 
