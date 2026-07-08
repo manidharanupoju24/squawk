@@ -9,12 +9,12 @@
 
 use std::net::IpAddr;
 use std::str::FromStr;
-use std::time::Intsant;
+use std::time::Instant;
 
 use anyhow::{Context, Result};
 use clap::Parser;
 use hickory_resolver::config::{NameServerConfigGroup, ResolverConfig, ResolverOpts};
-use hickory_resolver::error::ResolverErrorKind;
+use hickory_resolver::error::ResolveErrorKind;
 use hickory_resolver::proto::rr::RecordType;
 use hickory_resolver::TokioAsyncResolver;
 
@@ -54,12 +54,12 @@ async fn main() -> Result<()> {
 
     // Parse the type string ("a", "AAAA", ...) into hickory's RecordType enum.
     // `.to_uppercase()` normalizes user input; `?` returns early on bad type.
-    let rtype = RecordType::from_str(&cli.record_type.to_upperca:se())
+    let rtype = RecordType::from_str(&cli.record_type.to_uppercase())
         .with_context(|| format!("unknown record type: {}", cli.record_type))?;
 
     // Build the resolver. Two branches:  a specific server, or the system config.
     // `match` on the Option is Rust's null-safe fork in the road.
-    let resolver = match.cli.server {
+    let resolver = match cli.server {
         Some(ip) => {
             // from_ips_clear = plain UDP/TCP (no DNS-over-TLS) 
             let group = NameServerConfigGroup::from_ips_clear(&[ip], cli.port, true);
@@ -90,14 +90,14 @@ async fn main() -> Result<()> {
     // else (timeout, connection refused, SERVFAIL) is a genuine error we return.
     let lookup = match result {
         Ok(lookup) => lookup, 
-        Err(err) => match.err.kind() {
+        Err(err) => match err.kind() {
             ResolveErrorKind::NoRecordsFound { .. } => {
-                println!(";; no {rtype} records for {} ({:.1?})"), cli.name, elapsed);
+                println!(";; no {rtype} records for {} ({:.1?})", cli.name, elapsed);
                 return Ok(());
             }
             _ => {
                 return Err(anyhow::Error::new(err)
-                .context(format!("lookup failed for {} {}", clin.name, rtype)));
+                .context(format!("lookup failed for {} {}", cli.name, rtype)));
             }
         },
     };
