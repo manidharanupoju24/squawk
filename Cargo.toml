@@ -1,0 +1,15 @@
+
+[
+package
+]
+name = "squawk"
+version = "0.1.0"
+edition = "2024"
+
+[
+dependencies
+]
+clap = { version = "4", features = ["derive"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+hickory-resolver = "0.24"
+anyhow = "1"
